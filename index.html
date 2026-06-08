@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Block Blast - Global Realtime Edition</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #4a4a4a;
+            font-family: 'Arial Black', Gadget, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+
+        /* 👑 Üst Bar Tasarımı */
+        #top-bar {
+            width: 90vw;
+            max-width: 360px;
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .highscore-box {
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        /* 🟢 GERÇEK ZAMANLI AKTİF OYUNCU SAYACI */
+        .live-status {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-family: sans-serif;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 🌈 Orijinal Büyük Skor */
+        #main-score {
+            font-size: 64px;
+            font-weight: bold;
+            margin: 10px 0 15px 0;
+            background: linear-gradient(90deg, #00c6ff, #0072ff, #ff512f, #dd2476, #ffcc00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+
+        /* 🔲 Oyun Alanı */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 4px;
+            background-color: #222222;
+            padding: 8px;
+            border-radius: 12px;
+            width: 90vw;
+            height: 90vw;
+            max-width: 360px;
+            max-height: 360px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .cell {
+            background-color: #1a1c1e;
+            border-radius: 5px;
+            box-shadow: inset 0 0 4px rgba(0,0,0,0.6);
+        }
+
+        /* 📥 Alt Blok Haznesi */
+        #rack {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 90vw;
+            max-width: 360px;
+            height: 110px;
+            margin-top: 25px;
+        }
+
+        .rack-slot {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .mini-block {
+            position: absolute;
+            display: grid;
+            gap: 3px;
+            transform: scale(0.75);
+        }
+
+        .mini-cell { border-radius: 4px; }
+
+        /* Küp Renkleri */
+        .c-1 { background: linear-gradient(135deg, #00c6ff, #0072ff); box-shadow: inset 0 3px 6px rgba(255,255,255,0.4), 0 3px 6px rgba(0,0,0,0.3); } 
+        .c-2 { background: linear-gradient(135deg, #ff512f, #dd2476); box-shadow: inset 0 3px 6px rgba(255,255,255,0.4), 0 3px 6px rgba(0,0,0,0.3); } 
+        .c-3 { background: linear-gradient(135deg, #11998e, #38ef7d); box-shadow: inset 0 3px 6px rgba(255,255,255,0.4), 0 3px 6px rgba(0,0,0,0.3); } 
+        .c-4 { background: linear-gradient(135deg, #ffcc00, #ff9900); box-shadow: inset 0 3px 6px rgba(255,255,255,0.4), 0 3px 6px rgba(0,0,0,0.3); } 
+        .c-5 { background: linear-gradient(135deg, #b800ff, #7300aa); box-shadow: inset 0 3px 6px rgba(255,255,255,0.4), 0 3px 6px rgba(0,0,0,0.3); } 
+
+        #drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            display: none;
+            z-index: 999;
+            gap: 4px;
+        }
+
+        /* 📺 Alt Reklam Alanı */
+        #ad-container {
+            width: 100vw;
+            height: 60px;
+            background: #111;
+            margin-top: auto; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-top: 1px solid #2d2d2d;
+            z-index: 3000;
+        }
+
+        /* 🪟 Ayarlar Paneli */
+        .overlay-screen {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .menu-card {
+            background: #8e8e93;
+            border: 4px solid #b1b1b6;
+            width: 82vw;
+            max-width: 300px;
+            border-radius: 24px;
+            padding: 24px 16px;
+            color: white;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 10px 14px;
+            margin: 10px 0;
+            border-radius: 14px;
+            font-family: sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555; transition: .3s; border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+            background-color: white; transition: .3s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #4cd964; }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .settings-action-btn {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 14px;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-replay { background: #34c759; }
+
+        /* 📋 LİDERLİK TABLOSU (DİĞER İNSANLARIN SKORLARI) */
+        .leaderboard-title {
+            margin: 15px 0 5px 0;
+            font-size: 14px;
+            color: #ffd700;
+            text-align: left;
+            padding-left: 5px;
+        }
+        .leaderboard-container {
+            max-height: 100px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 5px;
+        }
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            font-family: sans-serif;
+            font-size: 13px;
+            padding: 4px 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        #combo-popup {
+            position: absolute;
+            top: 40%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            color: #ffcc00; font-size: 36px; font-weight: bold; z-index: 500;
+            pointer-events: none; text-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .close-icon { float: right; cursor: pointer; font-size: 20px; color: #ddd; margin-top: -10px; }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <div class="highscore-box">👑 <span id="highscore">3874</span></div>
+        
+        <div class="live-status">
+            <div class="live-dot"></div>
+            <span>AKTİF: <span id="live-count">1</span></span>
+        </div>
+
+        <button class="settings-btn" onclick="toggleScreen('settings-screen', true)">⚙️</button>
+    </div>
+
+    <div id="main-score">0</div>
+
+    <div id="board">
+        <div id="combo-popup">COMBO! 🔥🌈</div>
+    </div>
+
+    <div id="rack">
+        <div class="rack-slot" id="slot-0"></div>
+        <div class="rack-slot" id="slot-1"></div>
+        <div class="rack-slot" id="slot-2"></div>
+    </div>
+
+    <div id="drag-ghost"></div>
+
+    <div id="ad-container">
+        <ins class="adsbygoogle"
+             style="display:inline-block;width:320px;height:50px"
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot="YYYYYYYYYYYY"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+
+    <div class="overlay-screen" id="settings-screen">
+        <div class="menu-card">
+            <span class="close-icon" onclick="toggleScreen('settings-screen', false)">✕</span>
+            <h2 style="margin: 0 0 10px 0; font-size:24px; font-weight:normal;">Settings</h2>
+            
+            <div class="settings-row">
+                <span>🔊 Sound</span>
+                <label class="switch">
+                    <input type="checkbox" id="sound-toggle" checked onchange="updateSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="settings-row">
+                <span>🎵 BGM</span>
+                <label class="switch">
+                    <input type="checkbox" id="bgm-toggle" onchange="updateSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="settings-row">
+                <span>📳 Vibration</span>
+                <label class="switch">
+                    <input type="checkbox" id="vibe-toggle" checked onchange="updateSettings()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <button class="settings-action-btn btn-replay" onclick="resetGame(); toggleScreen('settings-screen', false);">🔄 Replay</button>
+            
+            <div class="leaderboard-title">🏆 Canlı Oyuncu Skorları</div>
+            <div class="leaderboard-container" id="leaderboard-box">
+                <div class="leaderboard-row" style="color:#aaa;"><span>Yükleniyor...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay-screen" id="game-over-screen">
+        <div class="menu-card" style="background:#2c2c2c; border-color:#444;">
+            <h1 style="color:#ff512f; margin-top:0;">Oyun Bitti</h1>
+            <h2 id="final-score" style="color:#ffd700; margin-bottom:20px;">Skor: 0</h2>
+            <button class="settings-action-btn btn-replay" onclick="resetGame()">Yeniden Başla 🔄</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // ⚠️ FIREBASE ENTEGRASYONU (GERÇEK VERİLER İÇİN)
+        // ==========================================
+        // Firebase konsolundan projenizi oluşturup buradaki bilgileri doldurun:
+        const firebaseConfig = {
+            apiKey: "BURAYA_API_KEY_GELECEK",
+            databaseURL: "BURAYA_DATABASE_URL_GELECEK",
+            projectId: "BURAYA_PROJECT_ID_GELECEK",
+            storageBucket: "BURAYA_STORAGE_BUCKET_GELECEK",
+            messagingSenderId: "BURAYA_SENDER_ID_GELECEK",
+            appId: "BURAYA_APP_ID_GELECEK"
+        };
+        
+        let database = null;
+        let myUserRef = null;
+        let userId = 'User_' + Math.floor(Math.random() * 10000);
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            
+            // Kullanıcı bağlandığında odada aktif duruma geçirme altyapısı
+            myUserRef = database.ref('presence/' + userId);
+            myUserRef.set({ name: userId, score: 0 });
+            myUserRef.onDisconnect().remove();
+
+            // 🟢 GERÇEK ZAMANLI AKTİF OYUNCU SAYISINI AL
+            database.ref('presence').on('value', (snapshot) => {
+                const count = snapshot.numChildren();
+                document.getElementById('live-count').innerText = count || 1;
+                
+                // Ayarlar menüsündeki canlı oyuncu skor listesini güncelle
+                const container = document.getElementById('leaderboard-box');
+                container.innerHTML = '';
+                snapshot.forEach((childSnapshot) => {
+                    const userData = childSnapshot.val();
+                    const row = document.createElement('div');
+                    row.classList.add('leaderboard-row');
+                    row.innerHTML = `<span>👤 ${userData.name === userId ? 'Siz' : userData.name}</span> <span>${userData.score}</span>`;
+                    container.appendChild(row);
+                });
+            });
+        } catch (e) {
+            console.log("Firebase config alanlarını doldurduğunuzda sistem aktifleşecektir.");
+        }
+
+        // ==========================================
+        // OYUN İÇİ MEKANİKLER (SADE TASARIM)
+        // ==========================================
+        const BOARD_SIZE = 8;
+        let boardState = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+        
+        let score = 0;
+        let highscore = 3874;
+        let comboCount = 0;
+        let rackBlocks = [null, null, null];
+
+        let isSoundEnabled = true;
+        let isBgmEnabled = false;
+        let isVibrationEnabled = true;
+
+        const SHAPES = [
+            { matrix: [[1,1,1,1]], color: 1 },
+            { matrix: [[1]], color: 2 },
+            { matrix: [[1,1],[1,1]], color: 3 },
+            { matrix: [[1,1,1],[0,1,0]], color: 4 },
+            { matrix: [[1,0],[1,1]], color: 5 }
+        ];
+
+        const boardEl = document.getElementById('board');
+        const dragGhost = document.getElementById('drag-ghost');
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playSound(freq, type, duration) {
+            if(!isSoundEnabled) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function triggerVibration(duration) {
+            if (isVibrationEnabled && navigator.vibrate) navigator.vibrate(duration);
+        }
+
+        function updateSettings() {
+            isSoundEnabled = document.getElementById('sound-toggle').checked;
+            isBgmEnabled = document.getElementById('bgm-toggle').checked;
+            isVibrationEnabled = document.getElementById('vibe-toggle').checked;
+        }
+
+        function createBoard() {
+            boardEl.innerHTML = '<div id="combo-popup">COMBO! 🔥</div>';
+            for(let r=0; r<BOARD_SIZE; r++) {
+                for(let c=0; c<BOARD_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell'); cell.dataset.row = r; cell.dataset.col = c;
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function fillRack() {
+            for(let i=0; i<3; i++) {
+                if(rackBlocks[i] === null) {
+                    let randomShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                    rackBlocks[i] = JSON.parse(JSON.stringify(randomShape));
+                    renderRackBlock(i);
+                }
+            }
+        }
+
+        function renderRackBlock(slotIndex) {
+            const slot = document.getElementById(`slot-${slotIndex}`);
+            slot.innerHTML = ''; slot.style.opacity = '1';
+            
+            const block = rackBlocks[slotIndex];
+            if(!block) return;
+
+            const miniBlock = document.createElement('div');
+            miniBlock.classList.add('mini-block');
+            miniBlock.style.gridTemplateRows = `repeat(${block.matrix.length}, 1fr)`;
+            miniBlock.style.gridTemplateColumns = `repeat(${block.matrix[0].length}, 1fr)`;
+            
+            const cellSize = 20;
+            miniBlock.style.width = `${block.matrix[0].length * (cellSize + 3)}px`;
+
+            block.matrix.forEach(row => {
+                row.forEach(val => {
+                    const cell = document.createElement('div');
+                    cell.style.width = `${cellSize}px`; cell.style.height = `${cellSize}px`;
+                    if(val) cell.classList.add('mini-cell', `c-${block.color}`);
+                    miniBlock.appendChild(cell);
+                });
+            });
+
+            slot.appendChild(miniBlock);
+            setupTouchEvents(slot, slotIndex);
+        }
+
+        let activeSlotIndex = null;
+
+        function setupTouchEvents(slot, slotIndex) {
+            slot.ontouchstart = (e) => {
+                if(rackBlocks[slotIndex] === null) return;
+                activeSlotIndex = slotIndex;
+                const touch = e.touches[0];
+                createGhost(rackBlocks[slotIndex]);
+                moveGhost(touch.clientX, touch.clientY);
+                slot.style.opacity = '0.0'; 
+                playSound(260, 'sine', 0.06);
+                triggerVibration(15);
+            };
+        }
+
+        window.ontouchmove = (e) => {
+            if(activeSlotIndex === null) return;
+            moveGhost(e.touches[0].clientX, e.touches[0].clientY);
+        };
+
+        window.ontouchend = (e) => {
+            if(activeSlotIndex === null) return;
+            
+            const touch = e.changedTouches[0];
+            const currentBlock = rackBlocks[activeSlotIndex];
+            const rect = boardEl.getBoundingClientRect();
+            
+            const ghostLeft = touch.clientX - (dragGhost.offsetWidth / 2);
+            const ghostTop = touch.clientY - 65; 
+            
+            const relativeX = ghostLeft - rect.left;
+            const relativeY = ghostTop - rect.top;
+            
+            const cellW = rect.width / BOARD_SIZE;
+            const cellH = rect.height / BOARD_SIZE;
+            
+            const targetCol = Math.round(relativeX / cellW);
+            const targetRow = Math.round(relativeY / cellH);
+            
+            let placed = false;
+            
+            if (targetRow >= 0 && targetRow < BOARD_SIZE && targetCol >= 0 && targetCol < BOARD_SIZE) {
+                if(canPlace(currentBlock, targetRow, targetCol)) {
+                    placeBlock(currentBlock, targetRow, targetCol);
+                    rackBlocks[activeSlotIndex] = null;
+                    document.getElementById(`slot-${activeSlotIndex}`).innerHTML = '';
+                    placed = true;
+                    matchLines();
+                }
+            }
+
+            if(!placed) {
+                document.getElementById(`slot-${activeSlotIndex}`).style.opacity = '1';
+                playSound(140, 'triangle', 0.1);
+            }
+
+            dragGhost.style.display = 'none';
+            activeSlotIndex = null;
+
+            if(rackBlocks[0] === null && rackBlocks[1] === null && rackBlocks[2] === null) {
+                fillRack();
+            } else {
+                checkGameOver();
+            }
+        };
+
+        function createGhost(block) {
+            dragGhost.innerHTML = ''; dragGhost.style.display = 'grid';
+            dragGhost.style.gridTemplateRows = `repeat(${block.matrix.length}, 1fr)`;
+            dragGhost.style.gridTemplateColumns = `repeat(${block.matrix[0].length}, 1fr)`;
+            
+            const rect = boardEl.getBoundingClientRect();
+            const cellSize = (rect.width / BOARD_SIZE) - 4; 
+            dragGhost.style.width = `${block.matrix[0].length * (cellSize + 4)}px`;
+            
+            block.matrix.forEach(row => {
+                row.forEach(val => {
+                    const cell = document.createElement('div');
+                    cell.style.width = `${cellSize}px`; cell.style.height = `${cellSize}px`;
+                    if(val) cell.classList.add('mini-cell', `c-${block.color}`);
+                    dragGhost.appendChild(cell);
+                });
+            });
+        }
+
+        function moveGhost(x, y) {
+            dragGhost.style.left = `${x - dragGhost.offsetWidth / 2}px`;
+            dragGhost.style.top = `${y - 65}px`;
+        }
+
+        function canPlace(block, startRow, startCol) {
+            if(!block) return false;
+            for(let r=0; r<block.matrix.length; r++) {
+                for(let c=0; c<block.matrix[r].length; c++) {
+                    if(block.matrix[r][c]) {
+                        let targetR = startRow + r;
+                        let targetC = startCol + c;
+                        if(targetR >= BOARD_SIZE || targetC >= BOARD_SIZE || boardState[targetR][targetC] !== 0) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function placeBlock(block, startRow, startCol) {
+            for(let r=0; r<block.matrix.length; r++) {
+                for(let c=0; c<block.matrix[r].length; c++) {
+                    if(block.matrix[r][c]) boardState[startRow + r][startCol + c] = block.color;
+                }
+            }
+            score += 10;
+            playSound(420, 'sine', 0.07);
+            triggerVibration(25);
+            updateUI();
+        }
+
+        function matchLines() {
+            let rowsToBlast = []; let colsToBlast = [];
+            for(let r=0; r<BOARD_SIZE; r++) { if(boardState[r].every(val => val !== 0)) rowsToBlast.push(r); }
+            for(let c=0; c<BOARD_SIZE; c++) {
+                let colFull = true;
+                for(let r=0; r<BOARD_SIZE; r++) { if(boardState[r][c] === 0) colFull = false; }
+                if(colFull) colsToBlast.push(c);
+            }
+
+            let totalBlasts = rowsToBlast.length + colsToBlast.length;
+            if(totalBlasts > 0) {
+                comboCount++;
+                score += totalBlasts * 120 * comboCount;
+                triggerComboPopup(comboCount);
+                playSound(580 + (comboCount * 60), 'sine', 0.25);
+                triggerVibration(60);
+                rowsToBlast.forEach(r => { for(let c=0; c<BOARD_SIZE; c++) boardState[r][c] = 0; });
+                colsToBlast.forEach(c => { for(let r=0; r<BOARD_SIZE; r++) boardState[r][c] = 0; });
+            } else { comboCount = 0; }
+
+            if(score > highscore) {
+                highscore = score;
+                document.getElementById('highscore').innerText = highscore;
+            }
+            updateUI();
+        }
+
+        function triggerComboPopup(count) {
+            const popup = document.getElementById('combo-popup');
+            popup.innerText = `COMBO x${count}! 🔥`;
+            popup.style.transform = 'translate(-50%, -50%) scale(1.2)';
+            setTimeout(() => { popup.style.transform = 'translate(-50%, -50%) scale(0)'; }, 800);
+        }
+
+        function toggleScreen(id, show) {
+            document.getElementById(id).style.display = show ? 'flex' : 'none';
+        }
+
+        function updateUI() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const r = cell.dataset.row; const c = cell.dataset.col;
+                const colorId = boardState[r][c];
+                cell.className = 'cell';
+                if(colorId !== 0) cell.classList.add(`c-${colorId}`);
+            });
+            document.getElementById('main-score').innerText = score;
+            
+            // Skor değiştiğinde bunu canlı veritabanına gönder
+            if(database && myUserRef) {
+                myUserRef.update({ score: score });
+            }
+        }
+
+        function checkGameOver() {
+            let spaceAvailable = false;
+            rackBlocks.forEach(block => {
+                if(!block) return;
+                for(let r=0; r<BOARD_SIZE; r++) {
+                    for(let c=0; c<BOARD_SIZE; c++) { if(canPlace(block, r, c)) spaceAvailable = true; }
+                }
+            });
+            if(!spaceAvailable && rackBlocks.some(b => b !== null)) {
+                document.getElementById('final-score').innerText = `Skorun: ${score}`;
+                toggleScreen('game-over-screen', true);
+            }
+        }
+
+        function resetGame() {
+            boardState = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+            score = 0; comboCount = 0; rackBlocks = [null, null, null];
+            createBoard(); fillRack(); updateUI();
+            toggleScreen('game-over-screen', false);
+        }
+
+        createBoard();
+        fillRack();
+        updateUI();
+    </script>
+</body>
+</html>
