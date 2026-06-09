@@ -1,567 +1,498 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Block Blast</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root { --bg1:#1a1a2e; --bg2:#16213e; --accent:#e94560; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  background:linear-gradient(160deg,var(--bg1) 0%,var(--bg2) 100%);
+  font-family:'Nunito',sans-serif;
+  display:flex;flex-direction:column;align-items:center;
+  min-height:100vh;color:white;overflow:hidden;
+  user-select:none;touch-action:none;transition:background 0.6s;
+}
+body.t1{--bg1:#0d1b2a;--bg2:#1b4332;--accent:#52b788;}
+body.t2{--bg1:#3d0c02;--bg2:#6d1a36;--accent:#ff6b6b;}
+body.t3{--bg1:#1a0533;--bg2:#2d1b69;--accent:#c77dff;}
+body.t4{--bg1:#003049;--bg2:#003566;--accent:#00b4d8;}
+body.t5{--bg1:#1b1b1b;--bg2:#2d2d2d;--accent:#ffd60a;}
 
-const BOARD_SIZE = 8;
-const COLORS = {
-  1: { bg: "linear-gradient(135deg,#00c6ff,#0072ff)", shadow: "0 2px 8px rgba(0,114,255,0.5)" },
-  2: { bg: "linear-gradient(135deg,#ff512f,#dd2476)", shadow: "0 2px 8px rgba(221,36,118,0.5)" },
-  3: { bg: "linear-gradient(135deg,#11998e,#38ef7d)", shadow: "0 2px 8px rgba(56,239,125,0.5)" },
-  4: { bg: "linear-gradient(135deg,#ffcc00,#ff9900)", shadow: "0 2px 8px rgba(255,153,0,0.5)" },
-  5: { bg: "linear-gradient(135deg,#b800ff,#7300aa)", shadow: "0 2px 8px rgba(184,0,255,0.5)" },
-  6: { bg: "linear-gradient(135deg,#f7971e,#ffd200)", shadow: "0 2px 8px rgba(255,210,0,0.5)" },
-};
+#top-bar{
+  width:95vw;max-width:380px;margin-top:14px;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.pill{
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+  border-radius:14px;padding:6px 14px;display:flex;flex-direction:column;
+  align-items:center;min-width:70px;
+}
+.pill .lbl{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(255,255,255,0.5);font-weight:700;}
+.pill .val{font-family:'Fredoka One',cursive;font-size:22px;color:#ffd700;line-height:1;}
 
-const THEMES = [
-  { bg1: "#1a1a2e", bg2: "#16213e", accent: "#e94560" },
-  { bg1: "#0d1b2a", bg2: "#1b4332", accent: "#52b788" },
-  { bg1: "#3d0c02", bg2: "#6d1a36", accent: "#ff6b6b" },
-  { bg1: "#1a0533", bg2: "#2d1b69", accent: "#c77dff" },
-  { bg1: "#003049", bg2: "#003566", accent: "#00b4d8" },
-  { bg1: "#1b1b1b", bg2: "#2d2d2d", accent: "#ffd60a" },
-];
+#timer-box{
+  background:rgba(255,255,255,0.08);border:2px solid var(--accent);
+  border-radius:14px;padding:6px 14px;text-align:center;min-width:70px;transition:border-color 0.3s;
+}
+#timer-box.urgent{border-color:#ff4444;animation:pulseBorder 0.5s infinite;}
+@keyframes pulseBorder{0%,100%{opacity:1}50%{opacity:0.4}}
+#timer-val{font-family:'Fredoka One',cursive;font-size:22px;line-height:1;color:white;}
 
+#main-score{
+  font-family:'Fredoka One',cursive;font-size:58px;line-height:1;
+  margin:10px 0 12px;
+  background:linear-gradient(90deg,#fff 0%,var(--accent) 60%,#ffd700 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,0.4));transition:background 0.6s;
+}
+#main-score.flash{animation:scoreFlash 0.3s ease;}
+@keyframes scoreFlash{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+
+#board{
+  display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+  gap:3px;background:#0f0f23;padding:7px;border-radius:16px;
+  width:95vw;height:95vw;max-width:370px;max-height:370px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6),inset 0 0 0 2px rgba(255,255,255,0.05);
+  position:relative;
+}
+.cell{border-radius:6px;background:#12122a;box-shadow:inset 0 0 3px rgba(0,0,0,0.5);transition:background 0.08s;}
+.c1{background:linear-gradient(135deg,#00c6ff,#0072ff);box-shadow:inset 0 2px 5px rgba(255,255,255,0.4),0 2px 5px rgba(0,114,255,0.3);}
+.c2{background:linear-gradient(135deg,#ff512f,#dd2476);box-shadow:inset 0 2px 5px rgba(255,255,255,0.4),0 2px 5px rgba(221,36,118,0.3);}
+.c3{background:linear-gradient(135deg,#11998e,#38ef7d);box-shadow:inset 0 2px 5px rgba(255,255,255,0.4),0 2px 5px rgba(56,239,125,0.3);}
+.c4{background:linear-gradient(135deg,#ffcc00,#ff9900);box-shadow:inset 0 2px 5px rgba(255,255,255,0.4),0 2px 5px rgba(255,153,0,0.3);}
+.c5{background:linear-gradient(135deg,#b800ff,#7300aa);box-shadow:inset 0 2px 5px rgba(255,255,255,0.4),0 2px 5px rgba(184,0,255,0.3);}
+.c6{background:linear-gradient(135deg,#f7971e,#ffd200);box-shadow:inset 0 2px 5px rgba(255,255,255,0.4),0 2px 5px rgba(255,210,0,0.3);}
+.cell.preview-ok{opacity:0.65;}
+.cell.preview-no{opacity:0.25;filter:grayscale(0.5);}
+.cell.blasting{animation:cellBlast 0.35s ease-out forwards;}
+@keyframes cellBlast{0%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:0.8;filter:brightness(2)}100%{transform:scale(0);opacity:0}}
+
+#rack{
+  display:flex;justify-content:space-around;align-items:center;
+  width:95vw;max-width:370px;height:115px;margin-top:16px;
+  background:rgba(255,255,255,0.04);border-radius:16px;
+  border:1px solid rgba(255,255,255,0.08);padding:4px;
+}
+.slot{width:100px;height:100px;display:flex;justify-content:center;align-items:center;border-radius:12px;background:rgba(255,255,255,0.03);}
+.mini-block{display:grid;gap:3px;transform:scale(0.82);transform-origin:center;}
+.mini-cell{border-radius:4px;}
+
+#ghost{
+  position:fixed;pointer-events:none;display:none;z-index:999;
+  gap:3px;opacity:0.88;
+}
+#combo-popup{
+  position:absolute;top:38%;left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  font-family:'Fredoka One',cursive;color:#ffcc00;font-size:32px;
+  z-index:500;pointer-events:none;
+  text-shadow:0 0 20px rgba(255,204,0,0.8),0 0 40px rgba(255,100,0,0.5);
+  transition:transform 0.35s cubic-bezier(0.175,0.885,0.32,1.275);
+  white-space:nowrap;
+}
+
+.overlay{
+  display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);
+  z-index:2000;justify-content:center;align-items:center;
+}
+.card{
+  width:85vw;max-width:310px;border-radius:24px;padding:24px 18px;
+  color:white;box-shadow:0 20px 60px rgba(0,0,0,0.7);text-align:center;
+  border:2px solid rgba(255,255,255,0.12);
+  background:linear-gradient(160deg,#1e1e3a 0%,#2a2a4a 100%);
+}
+.card-title{font-family:'Fredoka One',cursive;font-size:32px;margin-bottom:8px;}
+.card-score{font-family:'Fredoka One',cursive;font-size:52px;color:#ffd700;margin:10px 0;}
+.card-sub{font-size:13px;color:#aaa;margin-bottom:16px;}
+.btn{
+  width:100%;padding:13px;border-radius:14px;border:none;
+  font-size:17px;font-weight:900;cursor:pointer;color:white;
+  font-family:'Fredoka One',cursive;letter-spacing:0.5px;
+}
+.btn:active{transform:scale(0.97);}
+.btn-green{background:linear-gradient(135deg,#11998e,#38ef7d);}
+.btn-blue{background:linear-gradient(135deg,#0072ff,#00c6ff);}
+
+.particle{
+  position:fixed;border-radius:50%;pointer-events:none;
+  animation:pFly 0.6s ease-out forwards;
+}
+@keyframes pFly{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(0);opacity:0}}
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <div class="pill">
+    <span class="lbl">👑 Best</span>
+    <span class="val" id="hs">0</span>
+  </div>
+  <div id="timer-box">
+    <div class="lbl">⏱ Süre</div>
+    <div id="timer-val">5:00</div>
+  </div>
+  <div class="pill">
+    <span class="lbl">🔥 Combo</span>
+    <span class="val" id="combo-count">0</span>
+  </div>
+</div>
+
+<div id="main-score">0</div>
+
+<div id="board">
+  <div id="combo-popup"></div>
+</div>
+
+<div id="rack">
+  <div class="slot" id="s0"></div>
+  <div class="slot" id="s1"></div>
+  <div class="slot" id="s2"></div>
+</div>
+
+<div id="ghost"></div>
+
+<!-- GAME OVER -->
+<div class="overlay" id="go-screen">
+  <div class="card" style="background:linear-gradient(160deg,#1a0010,#3d001a);border-color:#dd2476;">
+    <div class="card-title" style="color:#ff6b9d;">Oyun Bitti 💥</div>
+    <div class="card-score" id="go-score">0</div>
+    <div class="card-sub">Yer kalmadı!</div>
+    <button class="btn btn-green" onclick="resetGame()">Yeniden Başla 🔄</button>
+  </div>
+</div>
+
+<!-- TIME UP -->
+<div class="overlay" id="tu-screen">
+  <div class="card" style="background:linear-gradient(160deg,#001a3d,#003566);border-color:#00b4d8;">
+    <div class="card-title" style="color:#00b4d8;">Süre Doldu! ⏰</div>
+    <div class="card-score" id="tu-score">0</div>
+    <div class="card-sub">5 dakikan bitti!</div>
+    <button class="btn btn-blue" onclick="resetGame()">Tekrar Oyna 🔄</button>
+  </div>
+</div>
+
+<script>
+const BS = 8;
+const THEMES = ['','t1','t2','t3','t4','t5'];
 const SHAPES = [
-  { matrix: [[1]], color: 1 },
-  { matrix: [[1,1]], color: 2 },
-  { matrix: [[1],[1]], color: 3 },
-  { matrix: [[1,1,1]], color: 4 },
-  { matrix: [[1],[1],[1]], color: 5 },
-  { matrix: [[1,1],[1,0]], color: 1 },
-  { matrix: [[1,1],[0,1]], color: 2 },
-  { matrix: [[1,1],[1,1]], color: 3 },
-  { matrix: [[1,1,1,1]], color: 4 },
-  { matrix: [[1],[1],[1],[1]], color: 5 },
-  { matrix: [[1,0],[1,0],[1,1]], color: 1 },
-  { matrix: [[0,1],[0,1],[1,1]], color: 2 },
-  { matrix: [[1,1,1],[1,0,0]], color: 3 },
-  { matrix: [[1,1,1],[0,0,1]], color: 4 },
-  { matrix: [[1,1,1],[0,1,0]], color: 5 },
-  { matrix: [[0,1],[1,1],[0,1]], color: 6 },
-  { matrix: [[0,1,1],[1,1,0]], color: 1 },
-  { matrix: [[1,1,0],[0,1,1]], color: 2 },
-  { matrix: [[1,1,1],[1,1,1],[1,1,1]], color: 6 },
-  { matrix: [[1,1,1,1,1]], color: 3 },
-  { matrix: [[1],[1],[1],[1],[1]], color: 4 },
-  { matrix: [[1,1,1],[1,1,1]], color: 5 },
-  { matrix: [[1,1],[1,1],[1,1]], color: 6 },
+  {m:[[1]],c:1},
+  {m:[[1,1]],c:2},{m:[[1],[1]],c:3},
+  {m:[[1,1,1]],c:4},{m:[[1],[1],[1]],c:5},
+  {m:[[1,1],[1,0]],c:1},{m:[[1,1],[0,1]],c:2},
+  {m:[[1,1],[1,1]],c:3},
+  {m:[[1,1,1,1]],c:4},{m:[[1],[1],[1],[1]],c:5},
+  {m:[[1,0],[1,0],[1,1]],c:1},{m:[[0,1],[0,1],[1,1]],c:2},
+  {m:[[1,1,1],[1,0,0]],c:3},{m:[[1,1,1],[0,0,1]],c:4},
+  {m:[[1,1,1],[0,1,0]],c:5},{m:[[0,1],[1,1],[0,1]],c:6},
+  {m:[[0,1,1],[1,1,0]],c:1},{m:[[1,1,0],[0,1,1]],c:2},
+  {m:[[1,1,1],[1,1,1],[1,1,1]],c:6},
+  {m:[[1,1,1,1,1]],c:3},{m:[[1],[1],[1],[1],[1]],c:4},
+  {m:[[1,1,1],[1,1,1]],c:5},{m:[[1,1],[1,1],[1,1]],c:6},
 ];
 
-function randomShape() {
-  return JSON.parse(JSON.stringify(SHAPES[Math.floor(Math.random() * SHAPES.length)]));
-}
+let board, score, combo, rack, tLeft, running, themeIdx, activeSlot;
+let hs = parseInt(localStorage.getItem('bb_hs') || '0');
+document.getElementById('hs').textContent = hs;
 
-function emptyBoard() {
-  return Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
-}
+function rnd(n){return Math.floor(Math.random()*n);}
+function newShape(){return JSON.parse(JSON.stringify(SHAPES[rnd(SHAPES.length)]));}
+function emptyBoard(){return Array(BS).fill(null).map(()=>Array(BS).fill(0));}
 
-function canPlace(board, block, startRow, startCol) {
-  if (!block) return false;
-  for (let r = 0; r < block.matrix.length; r++) {
-    for (let c = 0; c < block.matrix[r].length; c++) {
-      if (block.matrix[r][c]) {
-        const tr = startRow + r;
-        const tc = startCol + c;
-        if (tr >= BOARD_SIZE || tc >= BOARD_SIZE || tc < 0 || tr < 0 || board[tr][tc] !== 0) return false;
+function canPlace(blk, sr, sc){
+  if(!blk) return false;
+  for(let r=0;r<blk.m.length;r++)
+    for(let c=0;c<blk.m[r].length;c++)
+      if(blk.m[r][c]){
+        let tr=sr+r, tc=sc+c;
+        if(tr>=BS||tc>=BS||tc<0||tr<0||board[tr][tc]) return false;
       }
-    }
-  }
   return true;
 }
 
-export default function BlockBlast() {
-  const [board, setBoard] = useState(emptyBoard());
-  const [rack, setRack] = useState([randomShape(), randomShape(), randomShape()]);
-  const [score, setScore] = useState(0);
-  const [highscore, setHighscore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(300);
-  const [gameState, setGameState] = useState("playing"); // playing | gameover | timeup
-  const [themeIdx, setThemeIdx] = useState(0);
-  const [blasting, setBlasting] = useState(new Set());
-  const [comboText, setComboText] = useState(null);
-  const [comboCount, setComboCount] = useState(0);
-  const [dragInfo, setDragInfo] = useState(null); // { slotIdx, block, x, y }
-  const [hoverCell, setHoverCell] = useState(null); // { row, col }
-  const [scoreFlash, setScoreFlash] = useState(false);
+// ---- BUILD BOARD DOM ----
+const boardEl = document.getElementById('board');
+const ghost = document.getElementById('ghost');
 
-  const boardRef = useRef(null);
-  const comboRef = useRef(0);
-  comboRef.current = comboCount;
+function buildBoard(){
+  boardEl.innerHTML = '<div id="combo-popup"></div>';
+  for(let r=0;r<BS;r++)
+    for(let c=0;c<BS;c++){
+      let d=document.createElement('div');
+      d.className='cell'; d.dataset.r=r; d.dataset.c=c;
+      boardEl.appendChild(d);
+    }
+}
 
-  const theme = THEMES[themeIdx];
+function renderBoard(){
+  boardEl.querySelectorAll('.cell').forEach(el=>{
+    let r=+el.dataset.r, c=+el.dataset.c, v=board[r][c];
+    el.className='cell'+(v?' c'+v:'');
+  });
+}
 
-  // Timer
-  useEffect(() => {
-    if (gameState !== "playing") return;
-    if (timeLeft <= 0) { setGameState("timeup"); return; }
-    const t = setTimeout(() => setTimeLeft(p => p - 1), 1000);
-    return () => clearTimeout(t);
-  }, [timeLeft, gameState]);
+// ---- RACK ----
+function fillRack(){
+  for(let i=0;i<3;i++)
+    if(!rack[i]){ rack[i]=newShape(); renderSlot(i); }
+}
 
-  const formatTime = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+function renderSlot(i){
+  const slot=document.getElementById('s'+i);
+  slot.innerHTML='';
+  if(!rack[i]) return;
+  const blk=rack[i];
+  const mb=document.createElement('div');
+  mb.className='mini-block';
+  mb.style.gridTemplateColumns=`repeat(${blk.m[0].length},18px)`;
+  mb.style.gridTemplateRows=`repeat(${blk.m.length},18px)`;
+  blk.m.forEach(row=>row.forEach(v=>{
+    let d=document.createElement('div');
+    d.className='mini-cell'+(v?' c'+blk.c:'');
+    d.style.width='18px'; d.style.height='18px';
+    mb.appendChild(d);
+  }));
+  slot.appendChild(mb);
+}
 
-  // Place block
-  const placeBlock = useCallback((slotIdx, row, col) => {
-    const block = rack[slotIdx];
-    if (!block || !canPlace(board, block, row, col)) return false;
+// ---- DRAG ----
+let touchId=null;
 
-    const newBoard = board.map(r => [...r]);
-    let cellCount = 0;
-    for (let r = 0; r < block.matrix.length; r++) {
-      for (let c = 0; c < block.matrix[r].length; c++) {
-        if (block.matrix[r][c]) {
-          newBoard[row + r][col + c] = block.color;
-          cellCount++;
+for(let i=0;i<3;i++){
+  document.getElementById('s'+i).addEventListener('touchstart',e=>{
+    if(!rack[i]||!running) return;
+    e.preventDefault();
+    activeSlot=i;
+    buildGhost(rack[i]);
+    const t=e.touches[0];
+    moveGhost(t.clientX, t.clientY);
+    document.getElementById('s'+i).style.opacity='0.15';
+  },{passive:false});
+  document.getElementById('s'+i).addEventListener('mousedown',e=>{
+    if(!rack[i]||!running) return;
+    activeSlot=i;
+    buildGhost(rack[i]);
+    moveGhost(e.clientX, e.clientY);
+    document.getElementById('s'+i).style.opacity='0.15';
+  });
+}
+
+function buildGhost(blk){
+  ghost.innerHTML='';
+  ghost.style.display='grid';
+  const rect=boardEl.getBoundingClientRect();
+  const cw=(rect.width-14)/BS;
+  ghost.style.gridTemplateColumns=`repeat(${blk.m[0].length},${cw-3}px)`;
+  ghost.style.gridTemplateRows=`repeat(${blk.m.length},${cw-3}px)`;
+  ghost.style.gap='3px';
+  blk.m.forEach(row=>row.forEach(v=>{
+    let d=document.createElement('div');
+    d.style.width=(cw-3)+'px'; d.style.height=(cw-3)+'px';
+    d.style.borderRadius='6px';
+    if(v){ d.className='c'+blk.c; }
+    ghost.appendChild(d);
+  }));
+}
+
+function moveGhost(x,y){
+  ghost.style.left=(x-ghost.offsetWidth/2)+'px';
+  ghost.style.top=(y-ghost.offsetHeight/2-40)+'px';
+  showPreview(x,y);
+}
+
+function getTargetCell(x,y){
+  const rect=boardEl.getBoundingClientRect();
+  const cw=rect.width/BS, ch=rect.height/BS;
+  const blk=rack[activeSlot];
+  const gw=blk.m[0].length*cw, gh=blk.m.length*ch;
+  const relX=x-rect.left-gw/2, relY=(y-40)-rect.top-gh/2;
+  return {row:Math.round(relY/ch), col:Math.round(relX/cw)};
+}
+
+function showPreview(x,y){
+  renderBoard();
+  if(activeSlot===null||!rack[activeSlot]) return;
+  const blk=rack[activeSlot];
+  const {row,col}=getTargetCell(x,y);
+  const ok=canPlace(blk,row,col);
+  for(let r=0;r<blk.m.length;r++)
+    for(let c=0;c<blk.m[r].length;c++)
+      if(blk.m[r][c]){
+        let el=boardEl.querySelector(`[data-r="${row+r}"][data-c="${col+c}"]`);
+        if(el){
+          if(ok){ el.className='cell c'+blk.c+' preview-ok'; }
+          else { el.className='cell preview-no'; }
         }
       }
-    }
+}
 
-    const newRack = [...rack];
-    newRack[slotIdx] = null;
-
-    // Check lines
-    let rowsToClear = [];
-    let colsToClear = [];
-    for (let r = 0; r < BOARD_SIZE; r++) {
-      if (newBoard[r].every(v => v !== 0)) rowsToClear.push(r);
-    }
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      if (newBoard.every(r => r[c] !== 0)) colsToClear.push(c);
-    }
-
-    const totalBlasts = rowsToClear.length + colsToClear.length;
-    let addScore = cellCount * 2;
-
-    if (totalBlasts > 0) {
-      const newCombo = comboRef.current + 1;
-      setComboCount(newCombo);
-      const lineScore = totalBlasts * 100 * newCombo + totalBlasts * BOARD_SIZE * 5;
-      addScore += lineScore;
-
-      const blastSet = new Set();
-      rowsToClear.forEach(r => { for (let c = 0; c < BOARD_SIZE; c++) blastSet.add(`${r},${c}`); });
-      colsToClear.forEach(c => { for (let r = 0; r < BOARD_SIZE; r++) blastSet.add(`${r},${c}`); });
-      setBlasting(blastSet);
-
-      setComboText(newCombo > 1 ? `COMBO x${newCombo}! +${lineScore}` : `BLAST! +${lineScore}`);
-      setTimeout(() => setComboText(null), 900);
-
-      setThemeIdx(t => (t + 1) % 6);
-
-      setTimeout(() => {
-        rowsToClear.forEach(r => { for (let c = 0; c < BOARD_SIZE; c++) newBoard[r][c] = 0; });
-        colsToClear.forEach(c => { for (let r = 0; r < BOARD_SIZE; r++) newBoard[r][c] = 0; });
-        setBoard(newBoard);
-        setBlasting(new Set());
-      }, 320);
-    } else {
-      setComboCount(0);
-      setBoard(newBoard);
-    }
-
-    setScore(prev => {
-      const next = prev + addScore;
-      setHighscore(h => Math.max(h, next));
-      return next;
-    });
-
-    setScoreFlash(true);
-    setTimeout(() => setScoreFlash(false), 300);
-
-    // Fill rack if all empty
-    const allEmpty = newRack.every(b => b === null);
-    if (allEmpty) {
-      setRack([randomShape(), randomShape(), randomShape()]);
-    } else {
-      setRack(newRack);
-      // Check game over
-      setTimeout(() => {
-        const anyFit = newRack.some(b => {
-          if (!b) return false;
-          for (let r = 0; r < BOARD_SIZE; r++)
-            for (let c = 0; c < BOARD_SIZE; c++)
-              if (canPlace(newBoard, b, r, c)) return true;
-          return false;
-        });
-        if (!anyFit) setGameState("gameover");
-      }, 400);
-    }
-    return true;
-  }, [board, rack]);
-
-  // Drag handlers
-  const onSlotPointerDown = (e, slotIdx) => {
-    if (gameState !== "playing" || !rack[slotIdx]) return;
-    e.preventDefault();
-    setDragInfo({ slotIdx, block: rack[slotIdx], x: e.clientX, y: e.clientY });
-  };
-
-  useEffect(() => {
-    if (!dragInfo) return;
-    const onMove = (e) => {
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      setDragInfo(d => d ? { ...d, x: clientX, y: clientY } : null);
-
-      // Compute hover cell
-      if (boardRef.current) {
-        const rect = boardRef.current.getBoundingClientRect();
-        const cellW = rect.width / BOARD_SIZE;
-        const cellH = rect.height / BOARD_SIZE;
-        const ghostW = dragInfo.block.matrix[0].length * cellW;
-        const ghostH = dragInfo.block.matrix.length * cellH;
-        const relX = clientX - rect.left - ghostW / 2;
-        const relY = clientY - rect.top - ghostH / 2 - 30;
-        const col = Math.round(relX / cellW);
-        const row = Math.round(relY / cellH);
-        setHoverCell({ row, col });
-      }
-    };
-    const onUp = (e) => {
-      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
-      const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-      if (boardRef.current && dragInfo) {
-        const rect = boardRef.current.getBoundingClientRect();
-        const cellW = rect.width / BOARD_SIZE;
-        const cellH = rect.height / BOARD_SIZE;
-        const ghostW = dragInfo.block.matrix[0].length * cellW;
-        const ghostH = dragInfo.block.matrix.length * cellH;
-        const relX = clientX - rect.left - ghostW / 2;
-        const relY = clientY - rect.top - ghostH / 2 - 30;
-        const col = Math.round(relX / cellW);
-        const row = Math.round(relY / cellH);
-        placeBlock(dragInfo.slotIdx, row, col);
-      }
-      setDragInfo(null);
-      setHoverCell(null);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchmove", onMove, { passive: false });
-    window.addEventListener("touchend", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onUp);
-    };
-  }, [dragInfo, placeBlock]);
-
-  const resetGame = () => {
-    setBoard(emptyBoard());
-    setRack([randomShape(), randomShape(), randomShape()]);
-    setScore(0);
-    setTimeLeft(300);
-    setGameState("playing");
-    setThemeIdx(0);
-    setComboCount(0);
-    setBlasting(new Set());
-    setDragInfo(null);
-    setHoverCell(null);
-  };
-
-  // Compute preview cells for hover
-  const previewCells = new Set();
-  let previewValid = false;
-  if (dragInfo && hoverCell) {
-    const { block } = dragInfo;
-    const { row, col } = hoverCell;
-    previewValid = canPlace(board, block, row, col);
-    for (let r = 0; r < block.matrix.length; r++) {
-      for (let c = 0; c < block.matrix[r].length; c++) {
-        if (block.matrix[r][c]) previewCells.add(`${row+r},${col+c}`);
-      }
-    }
+function dropBlock(x,y){
+  if(activeSlot===null) return;
+  const blk=rack[activeSlot];
+  const {row,col}=getTargetCell(x,y);
+  if(canPlace(blk,row,col)){
+    placeBlock(blk,row,col);
+    rack[activeSlot]=null;
+    document.getElementById('s'+activeSlot).innerHTML='';
+    checkLines();
   }
-
-  const s = {
-    container: {
-      background: `linear-gradient(160deg, ${theme.bg1} 0%, ${theme.bg2} 100%)`,
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      userSelect: "none",
-      touchAction: "none",
-      fontFamily: "'Nunito', sans-serif",
-      color: "white",
-      paddingBottom: 16,
-      transition: "background 0.6s ease",
-    },
-    topBar: {
-      width: "95vw",
-      maxWidth: 370,
-      marginTop: 14,
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: 8,
-    },
-    pill: {
-      background: "rgba(255,255,255,0.08)",
-      border: "1px solid rgba(255,255,255,0.15)",
-      borderRadius: 14,
-      padding: "6px 14px",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      minWidth: 70,
-    },
-    pillLabel: { fontSize: 9, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.5)", fontWeight: 700 },
-    pillValue: { fontFamily: "'Fredoka One', cursive", fontSize: 22, color: "#ffd700", lineHeight: 1 },
-    timerBox: {
-      background: "rgba(255,255,255,0.08)",
-      border: `2px solid ${timeLeft <= 30 ? "#ff4444" : theme.accent}`,
-      borderRadius: 14,
-      padding: "6px 14px",
-      textAlign: "center",
-      minWidth: 70,
-      animation: timeLeft <= 30 ? "pulseBorder 0.5s infinite" : "none",
-    },
-    mainScore: {
-      fontFamily: "'Fredoka One', cursive",
-      fontSize: 58,
-      lineHeight: 1,
-      margin: "10px 0 12px 0",
-      background: `linear-gradient(90deg, #fff 0%, ${theme.accent} 60%, #ffd700 100%)`,
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-      filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.4))",
-      transform: scoreFlash ? "scale(1.18)" : "scale(1)",
-      transition: "transform 0.15s ease",
-    },
-    boardWrap: {
-      position: "relative",
-      width: "95vw",
-      maxWidth: 370,
-    },
-    board: {
-      display: "grid",
-      gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
-      gridTemplateRows: `repeat(${BOARD_SIZE}, 1fr)`,
-      gap: 3,
-      background: "#0f0f23",
-      padding: 7,
-      borderRadius: 16,
-      width: "95vw",
-      height: "95vw",
-      maxWidth: 370,
-      maxHeight: 370,
-      boxShadow: "0 8px 32px rgba(0,0,0,0.6), inset 0 0 0 2px rgba(255,255,255,0.05)",
-    },
-    rack: {
-      display: "flex",
-      justifyContent: "space-around",
-      alignItems: "center",
-      width: "95vw",
-      maxWidth: 370,
-      height: 115,
-      marginTop: 16,
-      background: "rgba(255,255,255,0.04)",
-      borderRadius: 16,
-      border: "1px solid rgba(255,255,255,0.08)",
-      padding: 4,
-    },
-    rackSlot: {
-      width: 100,
-      height: 100,
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      borderRadius: 12,
-      background: "rgba(255,255,255,0.03)",
-      cursor: "grab",
-      position: "relative",
-    },
-  };
-
-  return (
-    <div style={s.container}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap');
-        @keyframes pulseBorder { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        @keyframes cellBlast { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.35);opacity:0.8;filter:brightness(2)} 100%{transform:scale(0);opacity:0} }
-        @keyframes comboIn { 0%{transform:translate(-50%,-50%) scale(0)} 60%{transform:translate(-50%,-50%) scale(1.3)} 100%{transform:translate(-50%,-50%) scale(1)} }
-        @keyframes comboOut { to{transform:translate(-50%,-50%) scale(0);opacity:0} }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-      `}</style>
-
-      {/* TOP BAR */}
-      <div style={s.topBar}>
-        <div style={s.pill}>
-          <span style={s.pillLabel}>👑 Best</span>
-          <span style={s.pillValue}>{highscore}</span>
-        </div>
-        <div style={s.timerBox}>
-          <div style={s.pillLabel}>⏱ Süre</div>
-          <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 22, lineHeight: 1, color: timeLeft <= 30 ? "#ff4444" : "white" }}>
-            {formatTime(timeLeft)}
-          </div>
-        </div>
-        <div style={s.pill}>
-          <span style={s.pillLabel}>🔥 Combo</span>
-          <span style={s.pillValue}>{comboCount}</span>
-        </div>
-      </div>
-
-      {/* SCORE */}
-      <div style={s.mainScore}>{score}</div>
-
-      {/* BOARD */}
-      <div style={s.boardWrap}>
-        <div ref={boardRef} style={s.board}>
-          {Array(BOARD_SIZE).fill(null).map((_, r) =>
-            Array(BOARD_SIZE).fill(null).map((__, c) => {
-              const key = `${r},${c}`;
-              const colorId = board[r][c];
-              const isBlasting = blasting.has(key);
-              const isPreview = previewCells.has(key);
-              const blockColor = dragInfo?.block?.color;
-
-              let cellBg = "#12122a";
-              let cellShadow = "inset 0 0 3px rgba(0,0,0,0.5)";
-              let cellAnim = "none";
-              let cellOpacity = 1;
-
-              if (isBlasting) {
-                cellBg = colorId ? COLORS[colorId]?.bg : cellBg;
-                cellAnim = "cellBlast 0.35s ease-out forwards";
-              } else if (colorId) {
-                cellBg = COLORS[colorId]?.bg || cellBg;
-                cellShadow = `inset 0 2px 5px rgba(255,255,255,0.4), ${COLORS[colorId]?.shadow}`;
-              } else if (isPreview) {
-                cellBg = blockColor ? COLORS[blockColor]?.bg : "#444";
-                cellOpacity = previewValid ? 0.75 : 0.3;
-              }
-
-              return (
-                <div key={key} style={{
-                  borderRadius: 6,
-                  background: cellBg,
-                  boxShadow: cellShadow,
-                  animation: cellAnim,
-                  opacity: cellOpacity,
-                  transition: isBlasting ? "none" : "background 0.08s",
-                }} />
-              );
-            })
-          )}
-        </div>
-
-        {/* COMBO POPUP */}
-        {comboText && (
-          <div style={{
-            position: "absolute",
-            top: "40%", left: "50%",
-            transform: "translate(-50%,-50%)",
-            fontFamily: "'Fredoka One', cursive",
-            color: "#ffcc00",
-            fontSize: 28,
-            zIndex: 500,
-            pointerEvents: "none",
-            textShadow: "0 0 20px rgba(255,204,0,0.8), 0 0 40px rgba(255,100,0,0.5)",
-            whiteSpace: "nowrap",
-            animation: "comboIn 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
-          }}>{comboText}</div>
-        )}
-      </div>
-
-      {/* RACK */}
-      <div style={s.rack}>
-        {rack.map((block, idx) => (
-          <div key={idx} style={{ ...s.rackSlot, opacity: dragInfo?.slotIdx === idx ? 0.15 : 1 }}
-            onMouseDown={(e) => onSlotPointerDown(e, idx)}
-            onTouchStart={(e) => onSlotPointerDown(e, idx)}
-          >
-            {block && <MiniBlock block={block} />}
-          </div>
-        ))}
-      </div>
-
-      {/* DRAG GHOST */}
-      {dragInfo && (
-        <div style={{
-          position: "fixed",
-          pointerEvents: "none",
-          zIndex: 999,
-          left: dragInfo.x - (dragInfo.block.matrix[0].length * 38) / 2,
-          top: dragInfo.y - (dragInfo.block.matrix.length * 38) / 2 - 30,
-          display: "grid",
-          gap: 3,
-          gridTemplateColumns: `repeat(${dragInfo.block.matrix[0].length}, 38px)`,
-          gridTemplateRows: `repeat(${dragInfo.block.matrix.length}, 38px)`,
-          opacity: 0.85,
-        }}>
-          {dragInfo.block.matrix.map((row, r) =>
-            row.map((val, c) => (
-              <div key={`${r},${c}`} style={{
-                width: 38, height: 38, borderRadius: 6,
-                background: val ? COLORS[dragInfo.block.color]?.bg : "transparent",
-                boxShadow: val ? `inset 0 2px 5px rgba(255,255,255,0.4), ${COLORS[dragInfo.block.color]?.shadow}` : "none",
-              }} />
-            ))
-          )}
-        </div>
-      )}
-
-      {/* GAME OVER */}
-      {(gameState === "gameover" || gameState === "timeup") && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
-          background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)",
-          zIndex: 2000, display: "flex", justifyContent: "center", alignItems: "center",
-        }}>
-          <div style={{
-            background: gameState === "gameover"
-              ? "linear-gradient(160deg, #1a0010 0%, #3d001a 100%)"
-              : "linear-gradient(160deg, #001a3d 0%, #003566 100%)",
-            border: `2px solid ${gameState === "gameover" ? "#dd2476" : "#00b4d8"}`,
-            width: "85vw", maxWidth: 310, borderRadius: 24, padding: "24px 18px",
-            textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
-          }}>
-            <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 34, marginBottom: 8,
-              color: gameState === "gameover" ? "#ff6b9d" : "#00b4d8" }}>
-              {gameState === "gameover" ? "Oyun Bitti 💥" : "Süre Doldu! ⏰"}
-            </div>
-            <div style={{ fontFamily: "'Fredoka One', cursive", fontSize: 52, color: "#ffd700", margin: "10px 0" }}>
-              {score}
-            </div>
-            <div style={{ fontSize: 13, color: "#aaa", marginBottom: 16 }}>
-              {gameState === "gameover" ? "Yer kalmadı!" : "5 dakikan bitti!"}
-            </div>
-            <button onClick={resetGame} style={{
-              width: "100%", padding: 13, borderRadius: 14, border: "none",
-              fontSize: 17, fontWeight: 900, cursor: "pointer", color: "white",
-              fontFamily: "'Fredoka One', cursive",
-              background: gameState === "gameover"
-                ? "linear-gradient(135deg,#11998e,#38ef7d)"
-                : "linear-gradient(135deg,#0072ff,#00c6ff)",
-            }}>
-              {gameState === "gameover" ? "Yeniden Başla 🔄" : "Tekrar Oyna 🔄"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  document.getElementById('s'+activeSlot).style.opacity='1';
+  ghost.style.display='none';
+  renderBoard();
+  activeSlot=null;
+  if(rack.every(b=>!b)){ fillRack(); }
+  else { setTimeout(checkGameOver,400); }
 }
 
-function MiniBlock({ block }) {
-  const cellSize = 18;
-  return (
-    <div style={{
-      display: "grid",
-      gridTemplateColumns: `repeat(${block.matrix[0].length}, ${cellSize}px)`,
-      gridTemplateRows: `repeat(${block.matrix.length}, ${cellSize}px)`,
-      gap: 3,
-    }}>
-      {block.matrix.map((row, r) =>
-        row.map((val, c) => (
-          <div key={`${r},${c}`} style={{
-            width: cellSize, height: cellSize, borderRadius: 4,
-            background: val ? COLORS[block.color]?.bg : "transparent",
-            boxShadow: val ? `inset 0 1px 3px rgba(255,255,255,0.4)` : "none",
-          }} />
-        ))
-      )}
-    </div>
-  );
+window.addEventListener('touchmove',e=>{
+  if(activeSlot===null) return;
+  e.preventDefault();
+  moveGhost(e.touches[0].clientX,e.touches[0].clientY);
+},{passive:false});
+
+window.addEventListener('touchend',e=>{
+  if(activeSlot===null) return;
+  dropBlock(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+});
+
+window.addEventListener('mousemove',e=>{
+  if(activeSlot===null) return;
+  moveGhost(e.clientX,e.clientY);
+});
+
+window.addEventListener('mouseup',e=>{
+  if(activeSlot===null) return;
+  dropBlock(e.clientX,e.clientY);
+});
+
+// ---- PLACE ----
+function placeBlock(blk,sr,sc){
+  let n=0;
+  blk.m.forEach((row,r)=>row.forEach((v,c)=>{
+    if(v){ board[sr+r][sc+c]=blk.c; n++; }
+  }));
+  addScore(n*2);
 }
+
+// ---- LINES ----
+function checkLines(){
+  let rows=[], cols=[];
+  for(let r=0;r<BS;r++) if(board[r].every(v=>v)) rows.push(r);
+  for(let c=0;c<BS;c++) if(board.every(row=>row[c])) cols.push(c);
+  const total=rows.length+cols.length;
+  if(!total){ combo=0; document.getElementById('combo-count').textContent=0; return; }
+
+  combo++;
+  document.getElementById('combo-count').textContent=combo;
+  const pts=total*100*combo+total*BS*5;
+  addScore(pts);
+
+  const cells=new Set();
+  rows.forEach(r=>{ for(let c=0;c<BS;c++) cells.add(r+','+c); });
+  cols.forEach(c=>{ for(let r=0;r<BS;r++) cells.add(r+','+c); });
+
+  cells.forEach(k=>{
+    const [r,c]=k.split(',');
+    const el=boardEl.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+    if(el){ el.classList.add('blasting'); spawnParticles(el); }
+  });
+
+  showCombo(combo,pts);
+  themeIdx=(themeIdx+1)%6;
+  document.body.className=THEMES[themeIdx];
+
+  setTimeout(()=>{
+    rows.forEach(r=>{ for(let c=0;c<BS;c++) board[r][c]=0; });
+    cols.forEach(c=>{ for(let r=0;r<BS;r++) board[r][c]=0; });
+    renderBoard();
+  },320);
+}
+
+function showCombo(c,pts){
+  const p=document.getElementById('combo-popup');
+  p.textContent=c>1?`COMBO x${c}! +${pts}`:`BLAST! +${pts}`;
+  p.style.transform='translate(-50%,-50%) scale(1.2)';
+  setTimeout(()=>{ p.style.transform='translate(-50%,-50%) scale(0)'; },900);
+}
+
+function addScore(n){
+  score+=n;
+  if(score>hs){ hs=score; localStorage.setItem('bb_hs',hs); document.getElementById('hs').textContent=hs; }
+  const el=document.getElementById('main-score');
+  el.textContent=score;
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+// ---- PARTICLES ----
+function spawnParticles(el){
+  const rect=el.getBoundingClientRect();
+  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  const colors=['#ffcc00','#ff6b6b','#00c6ff','#38ef7d','#c77dff'];
+  for(let i=0;i<5;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const s=4+Math.random()*5;
+    p.style.cssText=`width:${s}px;height:${s}px;left:${cx}px;top:${cy}px;`;
+    const a=Math.random()*Math.PI*2, d=20+Math.random()*45;
+    p.style.setProperty('--tx',Math.cos(a)*d+'px');
+    p.style.setProperty('--ty',Math.sin(a)*d+'px');
+    p.style.background=colors[rnd(5)];
+    p.style.animationDuration=(0.4+Math.random()*0.3)+'s';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(),800);
+  }
+}
+
+// ---- GAME OVER ----
+function checkGameOver(){
+  if(!running) return;
+  const any=rack.some(b=>{
+    if(!b) return false;
+    for(let r=0;r<BS;r++) for(let c=0;c<BS;c++) if(canPlace(b,r,c)) return true;
+    return false;
+  });
+  if(!any){ running=false; clearInterval(timerInt); document.getElementById('go-score').textContent=score; show('go-screen'); }
+}
+
+// ---- TIMER ----
+let timerInt;
+function startTimer(){
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(!running) return;
+    tLeft--;
+    updateTimer();
+    if(tLeft<=0){ clearInterval(timerInt); running=false; document.getElementById('tu-score').textContent=score; show('tu-screen'); }
+  },1000);
+}
+function updateTimer(){
+  const m=Math.floor(tLeft/60), s=String(tLeft%60).padStart(2,'0');
+  document.getElementById('timer-val').textContent=m+':'+s;
+  const box=document.getElementById('timer-box');
+  if(tLeft<=30){ box.classList.add('urgent'); document.getElementById('timer-val').style.color='#ff4444'; }
+  else { box.classList.remove('urgent'); document.getElementById('timer-val').style.color='white'; }
+}
+
+function show(id){ document.getElementById(id).style.display='flex'; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+
+// ---- RESET ----
+function resetGame(){
+  board=emptyBoard(); score=0; combo=0; rack=[null,null,null];
+  tLeft=300; running=true; themeIdx=0; activeSlot=null;
+  document.body.className='';
+  document.getElementById('hs').textContent=hs;
+  hide('go-screen'); hide('tu-screen');
+  buildBoard(); fillRack(); renderBoard(); updateTimer(); startTimer();
+  document.getElementById('main-score').textContent='0';
+  document.getElementById('combo-count').textContent='0';
+}
+
+// ---- INIT ----
+resetGame();
+</script>
+</body>
+</html>
